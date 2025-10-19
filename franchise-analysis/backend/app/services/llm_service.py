@@ -38,7 +38,8 @@ class LLMService:
         """프롬프트 생성"""
         franchise = data['franchise']
         cluster_stats = data['cluster_stats']
-        risk_factors = data['risk_factors']
+        model_results = data.get('model_results', {})
+        cluster_indicators = data.get('cluster_indicators', [])
         
         prompt = f"""
 다음 가맹점의 폐업 위험을 분석하고 생존 전략을 제안해주세요.
@@ -47,13 +48,21 @@ class LLMService:
 - 상권: {franchise['trading_area']}
 - 업종: {franchise['industry']}
 - 클러스터: {cluster_stats.get('cluster_name', 'N/A')}
-- 폐업 위험도: {franchise['closure_risk']:.1f}%
+- 폐업 위험도: {franchise['risk_score']:.1f}점
 - 클러스터 평균 폐업률: {cluster_stats.get('closure_rate', 0):.1f}%
 
-## 주요 위험 요인
+## 모델 예측 결과
+- 매출 예측: {model_results.get('sales_prediction', 0):.0f}만원
+- 생존 가능성: {model_results.get('survival_probability', 0):.1f}%
+- 이벤트 예측: {model_results.get('event_prediction', 'N/A')}
+
+## 주요 지표 분석
 """
-        for rf in risk_factors:
-            prompt += f"- {rf['factor']}: {rf['description']}\n"
+        if cluster_indicators:
+            for indicator in cluster_indicators[:5]:  # 상위 5개 지표만 사용
+                prompt += f"- {indicator['name']}: {indicator['value']:.1f}{indicator['unit']} (클러스터 평균: {indicator['clusterAvg']:.1f}{indicator['unit']})\n"
+        else:
+            prompt += "- 지표 데이터가 없습니다.\n"
         
         prompt += """
 
@@ -161,7 +170,7 @@ strategies:
     def _get_default_strategy(self, data: Dict) -> Dict:
         """기본 전략 (API 키 없을 때)"""
         franchise = data['franchise']
-        risk_level = franchise['closure_risk']
+        risk_level = franchise['risk_score']
         
         if risk_level >= 70:
             summary = "이 가맹점은 **고위험군**에 속합니다. 즉각적인 개선 조치가 필요합니다."

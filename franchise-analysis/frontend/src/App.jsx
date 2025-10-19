@@ -1,56 +1,32 @@
 import React, { useState } from 'react';
 import SearchForm from './components/SearchForm';
 import StatsCard from './components/StatsCard';
-import ComparisonChart from './components/Charts/ComparisonChart';
-import DistributionChart from './components/Charts/DistributionChart';
-import RiskFactors from './components/RiskFactors';
+import ClusterIndicators from './components/ClusterIndicators';
+import SalesDeclineChart from './components/Charts/SalesDeclineChart';
+import ModelResults from './components/ModelResults';
 import LLMSuggestion from './components/LLMSuggestion';
-import { getFranchiseAnalysis, predictNewStore } from './services/api';
-import { Store } from 'lucide-react';
+import { getFranchiseReport } from './services/api';
+import { Store, FileText } from 'lucide-react';
 
 function App() {
-  const [mode, setMode] = useState('existing'); // 'existing' or 'new'
-  const [analysisData, setAnalysisData] = useState(null);
+  const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // 기존 가맹점 검색
+  // 가맹점 리포트 검색
   const handleSearch = async (franchiseId) => {
     setLoading(true);
     setError(null);
     
     try {
-      const data = await getFranchiseAnalysis(franchiseId);
-      setAnalysisData(data);
+      const data = await getFranchiseReport(franchiseId);
+      setReportData(data);
     } catch (err) {
       setError(err.message);
-      setAnalysisData(null);
+      setReportData(null);
     } finally {
       setLoading(false);
     }
-  };
-
-  // 신규 가맹점 분석
-  const handleNewStoreSubmit = async (formData) => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const data = await predictNewStore(formData);
-      setAnalysisData(data);
-    } catch (err) {
-      setError(err.message);
-      setAnalysisData(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 모드 변경 시 데이터 초기화
-  const handleModeChange = (newMode) => {
-    setMode(newMode);
-    setAnalysisData(null);
-    setError(null);
   };
 
   return (
@@ -59,44 +35,15 @@ function App() {
         {/* 헤더 */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">
-            🏪 가맹점 폐업 위험 분석
+            📊 가맹점 리포트
           </h1>
           <p className="text-gray-600">
-            AI 기반 상권 분석 및 생존 전략 제안 시스템
+            AI 기반 가맹점 분석 및 맞춤형 전략 제안 시스템
           </p>
         </div>
 
-        {/* 모드 선택 */}
-        <div className="flex gap-4 mb-6">
-          <button
-            onClick={() => handleModeChange('existing')}
-            className={`flex-1 py-3 px-6 rounded-lg font-semibold transition ${
-              mode === 'existing'
-                ? 'bg-indigo-600 text-white shadow-lg'
-                : 'bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            기존 가맹점 조회
-          </button>
-          <button
-            onClick={() => handleModeChange('new')}
-            className={`flex-1 py-3 px-6 rounded-lg font-semibold transition ${
-              mode === 'new'
-                ? 'bg-indigo-600 text-white shadow-lg'
-                : 'bg-white text-gray-600 hover:bg-gray-50'
-            }`}
-          >
-            신규 입점 분석
-          </button>
-        </div>
-
-        {/* 검색/입력 폼 */}
-        <SearchForm
-          mode={mode}
-          onSearch={handleSearch}
-          onNewStoreSubmit={handleNewStoreSubmit}
-          loading={loading}
-        />
+        {/* 검색 폼 */}
+        <SearchForm onSearch={handleSearch} loading={loading} />
 
         {/* 에러 메시지 */}
         {error && (
@@ -106,69 +53,82 @@ function App() {
           </div>
         )}
 
-        {/* 분석 결과 */}
-        {analysisData && (
+        {/* 리포트 결과 */}
+        {reportData && (
           <div className="mt-6 space-y-6 animate-fade-in">
+            {/* 리포트 헤더 */}
+            <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-indigo-500">
+              <div className="flex items-center gap-3 mb-4">
+                <FileText className="text-indigo-600" size={24} />
+                <h2 className="text-2xl font-bold text-gray-800">
+                  {reportData.storeInfo.name} 리포트
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                <div>
+                  <span className="font-semibold">상권:</span> {reportData.storeInfo.tradingArea}
+                </div>
+                <div>
+                  <span className="font-semibold">업종:</span> {reportData.storeInfo.industry}
+                </div>
+                <div>
+                  <span className="font-semibold">클러스터:</span> {reportData.storeInfo.cluster}
+                </div>
+              </div>
+            </div>
+
             {/* 기본 정보 카드들 */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <StatsCard
                 type="location"
                 title="상권 정보"
-                value={analysisData.storeInfo.tradingArea}
-                subtitle={analysisData.storeInfo.industry}
+                value={reportData.storeInfo.tradingArea}
+                subtitle={reportData.storeInfo.industry}
               />
               <StatsCard
                 type="cluster"
                 title="클러스터"
-                value={analysisData.storeInfo.cluster}
-                subtitle={`폐업률 ${analysisData.statistics.clusterClosureRate}%`}
+                value={reportData.storeInfo.cluster}
+                subtitle={`폐업률 ${reportData.statistics.clusterClosureRate}%`}
               />
               <StatsCard
                 type="traffic"
                 title="유동인구"
-                value={analysisData.statistics.avgMonthlyFootTraffic.toLocaleString()}
+                value={reportData.statistics.avgMonthlyFootTraffic.toLocaleString()}
                 subtitle="월 평균"
               />
               <StatsCard
                 type="risk"
                 title="폐업 위험도"
-                value={`${analysisData.storeInfo.closureRisk}%`}
-                risk={analysisData.storeInfo.closureRisk}
+                value={`${Number(reportData.storeInfo.closureRisk).toFixed(2)}%`}
+                risk={Number(reportData.storeInfo.closureRisk)}
               />
             </div>
 
-            {/* 주요 변수 비교 차트 */}
-            {analysisData.comparisonData && (
-              <ComparisonChart data={analysisData.comparisonData} />
-            )}
+            {/* 모델 결과 */}
+            <ModelResults results={reportData.modelResults} />
 
-            {/* 분포 차트 */}
-            {analysisData.distributionData && (
-              <DistributionChart data={analysisData.distributionData} />
-            )}
+            {/* 클러스터별 주요 지표 */}
+            <ClusterIndicators indicators={reportData.clusterIndicators} />
 
-            {/* 위험 요인 */}
-            {analysisData.riskFactors && (
-              <RiskFactors factors={analysisData.riskFactors} />
-            )}
+            {/* 매출 급감 예상 그래프 */}
+            <SalesDeclineChart data={reportData.salesDeclineData} />
 
             {/* AI 전략 제안 */}
-            {analysisData.llmSuggestion && (
-              <LLMSuggestion suggestion={analysisData.llmSuggestion} />
-            )}
+            <LLMSuggestion suggestion={reportData.llmSuggestion} />
           </div>
         )}
 
         {/* 초기 상태 안내 */}
-        {!analysisData && !loading && !error && (
+        {!reportData && !loading && !error && (
           <div className="mt-12 bg-white rounded-xl shadow-lg p-12 text-center">
             <Store size={64} className="mx-auto text-gray-300 mb-4" />
             <h3 className="text-xl font-semibold text-gray-600 mb-2">
-              가맹점 정보를 입력해주세요
+              가맹점 ID를 입력해주세요
             </h3>
             <p className="text-gray-500">
-              기존 가맹점 ID를 조회하거나 신규 입점 정보를 입력하면<br />
-              AI가 자동으로 상권을 분석하고 전략을 제안해드립니다.
+              가맹점 ID를 입력하면 상세한 분석 리포트와<br />
+              AI 기반 맞춤형 전략을 제공해드립니다.
             </p>
           </div>
         )}

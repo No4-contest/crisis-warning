@@ -39,30 +39,16 @@ apiClient.interceptors.response.use(
 // ============================================
 
 /**
- * 기존 가맹점 정보 조회
+ * 가맹점 리포트 조회
  * @param {string} franchiseId - 가맹점 ID
- * @returns {Promise} 가맹점 분석 데이터
+ * @returns {Promise} 가맹점 리포트 데이터
  */
-export const getFranchiseAnalysis = async (franchiseId) => {
+export const getFranchiseReport = async (franchiseId) => {
   try {
-    const response = await apiClient.get(`/api/franchise/${franchiseId}`);
+    const response = await apiClient.get(`/api/franchise/report/${franchiseId}`);
     return response.data;
   } catch (error) {
-    throw new Error(error.response?.data?.detail || '가맹점 조회에 실패했습니다.');
-  }
-};
-
-/**
- * 신규 가맹점 클러스터 예측 및 분석
- * @param {Object} storeData - 신규 점포 정보
- * @returns {Promise} 예측된 클러스터 및 분석 데이터
- */
-export const predictNewStore = async (storeData) => {
-  try {
-    const response = await apiClient.post('/api/franchise/predict', storeData);
-    return response.data;
-  } catch (error) {
-    throw new Error(error.response?.data?.detail || '신규 점포 분석에 실패했습니다.');
+    throw new Error(error.response?.data?.detail || '가맹점 리포트 조회에 실패했습니다.');
   }
 };
 

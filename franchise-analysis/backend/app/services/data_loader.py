@@ -118,10 +118,15 @@ class DataLoader:
         if industry_data.empty:
             return None
         
+        # is_closed 컬럼이 없으므로 risk_score를 기반으로 폐업률 추정
+        # risk_score가 70 이상이면 폐업 위험으로 간주
+        high_risk_count = len(industry_data[industry_data['risk_score'] >= 70])
+        estimated_closure_rate = (high_risk_count / len(industry_data)) * 100
+        
         return {
             'total_stores': len(industry_data),
-            'closure_rate': industry_data['is_closed'].mean() * 100,
-            'avg_closure_risk': industry_data['closure_risk'].mean()
+            'closure_rate': estimated_closure_rate,
+            'avg_closure_risk': industry_data['risk_score'].mean()
         }
 
 

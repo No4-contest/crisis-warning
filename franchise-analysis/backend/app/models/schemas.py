@@ -1,22 +1,14 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 
 # ============================================
 # 요청 스키마
 # ============================================
 
-class NewStoreRequest(BaseModel):
-    """신규 가맹점 정보 입력"""
-    tradingArea: str = Field(..., description="상권명")
-    industry: str = Field(..., description="업종")
-    latitude: float = Field(..., description="위도")
-    longitude: float = Field(..., description="경도")
-    monthlyRent: Optional[float] = Field(None, description="월 임대료 (만원)")
-    nearbyStores: Optional[int] = Field(None, description="경쟁 점포 수")
-    footTraffic: Optional[int] = Field(None, description="월 평균 유동인구")
-    rentIncreaseRate: Optional[float] = Field(None, description="임대료 상승률 (%)")
-    salesGrowthRate: Optional[float] = Field(None, description="매출 성장률 (%)")
+class FranchiseReportRequest(BaseModel):
+    """가맹점 리포트 조회 요청"""
+    franchiseId: str = Field(..., description="가맹점 ID")
 
 
 # ============================================
@@ -33,6 +25,31 @@ class StoreInfo(BaseModel):
     latitude: float
     longitude: float
     closureRisk: float
+
+
+class ModelResults(BaseModel):
+    """모델 예측 결과"""
+    salesPrediction: float = Field(..., description="매출 예측값")
+    eventPrediction: str = Field(..., description="이벤트 예측 (예: 매출 급감, 경쟁 심화 등)")
+    survivalProbability: float = Field(..., description="생존 가능성 (0-100%)")
+    riskScore: float = Field(..., description="위험도 점수")
+
+
+class ClusterIndicator(BaseModel):
+    """클러스터별 주요 지표"""
+    name: str = Field(..., description="지표명")
+    value: float = Field(..., description="현재값")
+    clusterAvg: float = Field(..., description="클러스터 평균")
+    unit: str = Field(..., description="단위")
+    description: str = Field(..., description="지표 설명")
+    isPositive: bool = Field(..., description="높을수록 좋은 지표인지")
+
+
+class SalesDeclineData(BaseModel):
+    """매출 급감 예상 그래프 데이터"""
+    month: str
+    predictedSales: float
+    currentSales: Optional[float] = None
 
 
 class Statistics(BaseModel):
@@ -74,13 +91,13 @@ class LLMSuggestion(BaseModel):
     strategies: List[str]
 
 
-class AnalysisResponse(BaseModel):
-    """전체 분석 응답"""
+class FranchiseReportResponse(BaseModel):
+    """가맹점 리포트 응답"""
     storeInfo: StoreInfo
+    modelResults: ModelResults
+    clusterIndicators: List[ClusterIndicator]
+    salesDeclineData: List[SalesDeclineData]
     statistics: Statistics
-    comparisonData: List[ComparisonData]
-    distributionData: List[DistributionData]
-    riskFactors: List[RiskFactor]
     llmSuggestion: LLMSuggestion
 
 

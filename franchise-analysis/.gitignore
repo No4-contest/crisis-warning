@@ -2,4 +2,4 @@ frontend/node_modules/
 __pycache__/
 *.csv
 *.pkl
-.env
+*.env

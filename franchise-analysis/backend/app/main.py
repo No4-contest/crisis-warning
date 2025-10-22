@@ -62,20 +62,16 @@ async def startup_event():
     # 데이터 로더 초기화
     from app.services.data_loader import data_loader
     try:
-        data_loader.load_franchises()
-        data_loader.load_clusters()
-        data_loader.load_statistics()
+        data_loader.load_store_features()
+        data_loader.load_store_diagnosis_results()
+        data_loader.load_cluster_metadata()
+        data_loader.load_feature_dictionary()
+        data_loader.load_risk_checklist_rules()
+        data_loader.load_store_monthly_timeseries()
+        data_loader.load_sales_predict()
         print("✅ 모든 데이터 로드 완료")
     except Exception as e:
         print(f"⚠️  데이터 로드 중 오류: {e}")
-    
-    # 모델 로더 초기화
-    try:
-        data_loader.load_cluster_model()
-        data_loader.load_scaler()
-        print("✅ 모델 로드 완료")
-    except Exception as e:
-        print(f"⚠️  모델 로드 중 오류: {e}")
     
     print("=" * 50)
 

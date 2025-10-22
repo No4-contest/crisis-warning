@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional, Dict, Any
 
 
@@ -22,9 +22,11 @@ class StoreInfo(BaseModel):
     tradingArea: str
     industry: str
     cluster: str
+    clusterName: str
     latitude: float
     longitude: float
-    closureRisk: float
+    riskLevel: str  # '낮음', '중간', '높음', '치명적'
+    riskScore: float
 
 
 class ModelResults(BaseModel):
@@ -85,6 +87,37 @@ class RiskFactor(BaseModel):
     benchmark: Optional[str] = None
 
 
+class RuleViolation(BaseModel):
+    """룰 위반 정보"""
+    ruleText: str
+    riskLevel: str
+    featureKorean: str
+    currentValue: float
+    threshold: float
+    direction: str
+
+
+class TrendData(BaseModel):
+    """트렌드 데이터"""
+    month: str
+    salesGrade: Optional[int] = None  # 매출 등급 (1-6)
+    type: str  # 'actual', 'forecast'
+    clusterRank: Optional[float] = None  # 0-1 (1=상위)
+    pLow56: Optional[float] = None
+    riskWorsen: Optional[float] = None
+
+
+class SalesPrediction(BaseModel):
+    """매출 등급 예측 정보"""
+    targetMonth: str = Field(..., description="예측 대상 월 (YYYY-MM)")
+    horizon: int = Field(..., description="예측 시차 (1, 2, 3개월)")
+    yhatGrade: int = Field(..., description="예측 등급 (1-6, 낮을수록 우수)")
+    yhatProb: float = Field(..., description="예측 확률")
+    pLow56: float = Field(..., description="하위권(5,6구간) 확률")
+    riskWorsenGe2: float = Field(..., description="2단계 이상 급락 위험 확률")
+    yT: int = Field(..., description="현재 등급 (1-6)")
+
+
 class LLMSuggestion(BaseModel):
     """LLM 전략 제안"""
     summary: str
@@ -95,8 +128,10 @@ class FranchiseReportResponse(BaseModel):
     """가맹점 리포트 응답"""
     storeInfo: StoreInfo
     modelResults: ModelResults
+    ruleViolations: List[RuleViolation]
     clusterIndicators: List[ClusterIndicator]
-    salesDeclineData: List[SalesDeclineData]
+    trendData: List[TrendData]
+    salesPredictions: List[SalesPrediction]
     statistics: Statistics
     llmSuggestion: LLMSuggestion
 

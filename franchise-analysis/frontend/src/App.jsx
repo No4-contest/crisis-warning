@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import SearchForm from './components/SearchForm';
 import StatsCard from './components/StatsCard';
-import ClusterIndicators from './components/ClusterIndicators';
-import SalesDeclineChart from './components/Charts/SalesDeclineChart';
+import RiskIndicators from './components/RiskIndicators';
+import TrendLineChart from './components/Charts/TrendLineChart';
 import ModelResults from './components/ModelResults';
 import LLMSuggestion from './components/LLMSuggestion';
 import { getFranchiseReport } from './services/api';
-import { Store, FileText } from 'lucide-react';
+import { Store, FileText, AlertTriangle } from 'lucide-react';
 
 function App() {
   const [reportData, setReportData] = useState(null);
@@ -14,12 +14,12 @@ function App() {
   const [error, setError] = useState(null);
 
   // 가맹점 리포트 검색
-  const handleSearch = async (franchiseId) => {
+  const handleSearch = async (storeId) => {
     setLoading(true);
     setError(null);
     
     try {
-      const data = await getFranchiseReport(franchiseId);
+      const data = await getFranchiseReport(storeId);
       setReportData(data);
     } catch (err) {
       setError(err.message);
@@ -53,68 +53,75 @@ function App() {
           </div>
         )}
 
+        {/* 로딩 오버레이 */}
+        {loading && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-8 text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+              <p className="text-gray-600">분석 중입니다...</p>
+            </div>
+          </div>
+        )}
+
         {/* 리포트 결과 */}
         {reportData && (
           <div className="mt-6 space-y-6 animate-fade-in">
-            {/* 리포트 헤더 */}
-            <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-indigo-500">
+            {/* 1. 상단 공통 정보 영역 */}
+            <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-indigo-500 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
               <div className="flex items-center gap-3 mb-4">
                 <FileText className="text-indigo-600" size={24} />
                 <h2 className="text-2xl font-bold text-gray-800">
                   {reportData.storeInfo.name} 리포트
                 </h2>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
-                <div>
-                  <span className="font-semibold">상권:</span> {reportData.storeInfo.tradingArea}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-blue-50 rounded-lg p-4 hover:bg-blue-100 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+                  <div className="text-sm text-blue-600 font-semibold">가맹점명</div>
+                  <div className="text-lg font-bold text-blue-800">{reportData.storeInfo.name}</div>
                 </div>
-                <div>
-                  <span className="font-semibold">업종:</span> {reportData.storeInfo.industry}
+                <div className="bg-green-50 rounded-lg p-4 hover:bg-green-100 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+                  <div className="text-sm text-green-600 font-semibold">클러스터</div>
+                  <div className="text-lg font-bold text-green-800">{reportData.storeInfo.clusterName}</div>
                 </div>
-                <div>
-                  <span className="font-semibold">클러스터:</span> {reportData.storeInfo.cluster}
+                <div className="bg-purple-50 rounded-lg p-4 hover:bg-purple-100 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
+                  <div className="text-sm text-purple-600 font-semibold">상권</div>
+                  <div className="text-lg font-bold text-purple-800">{reportData.storeInfo.tradingArea}</div>
+                </div>
+                <div className={`rounded-lg p-4 hover:opacity-90 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
+                  reportData.storeInfo.riskLevel === '치명적' ? 'bg-red-50' :
+                  reportData.storeInfo.riskLevel === '높음' ? 'bg-orange-50' :
+                  reportData.storeInfo.riskLevel === '중간' ? 'bg-yellow-50' : 'bg-blue-50'
+                }`}>
+                  <div className={`text-sm font-semibold ${
+                    reportData.storeInfo.riskLevel === '치명적' ? 'text-red-600' :
+                    reportData.storeInfo.riskLevel === '높음' ? 'text-orange-600' :
+                    reportData.storeInfo.riskLevel === '중간' ? 'text-yellow-600' : 'text-blue-600'
+                  }`}>위험도</div>
+                  <div className={`text-lg font-bold ${
+                    reportData.storeInfo.riskLevel === '치명적' ? 'text-red-800' :
+                    reportData.storeInfo.riskLevel === '높음' ? 'text-orange-800' :
+                    reportData.storeInfo.riskLevel === '중간' ? 'text-yellow-800' : 'text-blue-800'
+                  }`}>{reportData.storeInfo.riskLevel}</div>
                 </div>
               </div>
             </div>
 
-            {/* 기본 정보 카드들 */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <StatsCard
-                type="location"
-                title="상권 정보"
-                value={reportData.storeInfo.tradingArea}
-                subtitle={reportData.storeInfo.industry}
-              />
-              <StatsCard
-                type="cluster"
-                title="클러스터"
-                value={reportData.storeInfo.cluster}
-                subtitle={`폐업률 ${reportData.statistics.clusterClosureRate}%`}
-              />
-              <StatsCard
-                type="traffic"
-                title="유동인구"
-                value={reportData.statistics.avgMonthlyFootTraffic.toLocaleString()}
-                subtitle="월 평균"
-              />
-              <StatsCard
-                type="risk"
-                title="폐업 위험도"
-                value={`${Number(reportData.storeInfo.closureRisk).toFixed(2)}%`}
-                risk={Number(reportData.storeInfo.closureRisk)}
-              />
-            </div>
+            {/* 2. 모델 진단 결과 영역 */}
+            <ModelResults 
+              results={reportData.modelResults} 
+              salesPredictions={reportData.salesPredictions}
+            />
 
-            {/* 모델 결과 */}
-            <ModelResults results={reportData.modelResults} />
+            {/* 3. 위험 지표 현황 (위반된 룰 + 클러스터 지표 통합) */}
+            <RiskIndicators 
+              violations={reportData.ruleViolations}
+              indicators={reportData.clusterIndicators}
+            />
 
-            {/* 클러스터별 주요 지표 */}
-            <ClusterIndicators indicators={reportData.clusterIndicators} />
+            {/* 4. 트렌드 그래프 영역 */}
+            <TrendLineChart data={reportData.trendData} />
 
-            {/* 매출 급감 예상 그래프 */}
-            <SalesDeclineChart data={reportData.salesDeclineData} />
-
-            {/* AI 전략 제안 */}
+            {/* 6. 전략 제안 영역 */}
             <LLMSuggestion suggestion={reportData.llmSuggestion} />
           </div>
         )}

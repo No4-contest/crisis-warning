@@ -2,17 +2,17 @@ import React, { useState } from 'react';
 import { Search } from 'lucide-react';
 
 const SearchForm = ({ onSearch, loading }) => {
-  const [franchiseId, setFranchiseId] = useState('');
+  const [storeId, setStoreId] = useState('');
   const [errors, setErrors] = useState({});
 
-  // 가맹점 검색
+  // 점포 검색
   const handleSearch = () => {
-    if (!franchiseId.trim()) {
-      setErrors({ franchiseId: '가맹점 ID를 입력해주세요.' });
+    if (!storeId.trim()) {
+      setErrors({ storeId: '점포 ID를 입력해주세요.' });
       return;
     }
     setErrors({});
-    onSearch(franchiseId);
+    onSearch(storeId);
   };
 
   // Enter 키 처리
@@ -26,22 +26,22 @@ const SearchForm = ({ onSearch, loading }) => {
     <div className="bg-white rounded-xl shadow-lg p-6">
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-2">
-          가맹점 ID 검색
+          점포 ID 검색
         </label>
         <div className="flex gap-3">
           <div className="flex-1">
             <input
               type="text"
-              placeholder="예: FR-12345"
-              value={franchiseId}
-              onChange={(e) => setFranchiseId(e.target.value)}
+              placeholder="예: 000F03E44A"
+              value={storeId}
+              onChange={(e) => setStoreId(e.target.value)}
               onKeyPress={handleKeyPress}
               className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
-                errors.franchiseId ? 'border-red-500' : 'border-gray-300'
+                errors.storeId ? 'border-red-500' : 'border-gray-300'
               }`}
             />
-            {errors.franchiseId && (
-              <p className="text-red-500 text-sm mt-1">{errors.franchiseId}</p>
+            {errors.storeId && (
+              <p className="text-red-500 text-sm mt-1">{errors.storeId}</p>
             )}
           </div>
           <button

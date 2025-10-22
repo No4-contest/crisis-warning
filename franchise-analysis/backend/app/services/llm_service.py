@@ -19,7 +19,8 @@ class LLMService:
         """분석 데이터 기반 전략 생성"""
         
         if not self.api_key:
-            # API 키가 없으면 기본 전략 반환
+            # API 키가 없으면 데이터 기반 기본 전략 반환
+            print("⚠️  LLM API 키 없음 - 데이터 기반 기본 전략 사용")
             return self._get_default_strategy(analysis_data)
         
         # 프롬프트 생성
@@ -27,37 +28,52 @@ class LLMService:
         
         try:
             if self.provider == "openai":
-                return self._call_openai(prompt)
+                result = self._call_openai(prompt, analysis_data)
             else:
-                return self._call_anthropic(prompt)
+                result = self._call_anthropic(prompt, analysis_data)
+            
+            print(f"✅ LLM 전략 생성 성공")
+            return result
         except Exception as e:
             print(f"❌ LLM 호출 실패: {e}")
+            print(f"🔄 데이터 기반 기본 전략으로 전환")
             return self._get_default_strategy(analysis_data)
     
     def _create_prompt(self, data: Dict) -> str:
         """프롬프트 생성"""
-        franchise = data['franchise']
-        cluster_stats = data['cluster_stats']
+        store_data = data['store_data']
+        location_info = data.get('location_info', {})
+        cluster_metadata = data.get('cluster_metadata', {})
+        diagnosis_results = data.get('diagnosis_results', {})
         model_results = data.get('model_results', {})
         cluster_indicators = data.get('cluster_indicators', [])
+        rule_violations = data.get('rule_violations', [])
         
         prompt = f"""
 다음 가맹점의 폐업 위험을 분석하고 생존 전략을 제안해주세요.
 
 ## 가맹점 정보
-- 상권: {franchise['trading_area']}
-- 업종: {franchise['industry']}
-- 클러스터: {cluster_stats.get('cluster_name', 'N/A')}
-- 폐업 위험도: {franchise['risk_score']:.1f}점
-- 클러스터 평균 폐업률: {cluster_stats.get('closure_rate', 0):.1f}%
+- 점포명: {store_data.get('store_name', 'N/A')}
+- 상권: {location_info.get('business_district', 'N/A')}
+- 업종: {store_data.get('industry', 'N/A')}
+- 클러스터: {cluster_metadata.get('cluster_name', f'클러스터 {store_data.get("static_cluster", "0")}')}
+- 위험도 점수: {diagnosis_results.get('total_risk_score', 50):.1f}점
+- 위험도 레벨: {diagnosis_results.get('total_risk_level', '중간')}
 
 ## 모델 예측 결과
 - 매출 예측: {model_results.get('sales_prediction', 0):.0f}만원
 - 생존 가능성: {model_results.get('survival_probability', 0):.1f}%
 - 이벤트 예측: {model_results.get('event_prediction', 'N/A')}
 
-## 주요 지표 분석
+## 위반된 룰
 """
+        if rule_violations:
+            for violation in rule_violations[:3]:  # 상위 3개 위반만 표시
+                prompt += f"- {violation['ruleText']} (위험도: {violation['riskLevel']})\n"
+        else:
+            prompt += "- 위반된 룰이 없습니다.\n"
+        
+        prompt += "\n## 주요 지표 분석\n"
         if cluster_indicators:
             for indicator in cluster_indicators[:5]:  # 상위 5개 지표만 사용
                 prompt += f"- {indicator['name']}: {indicator['value']:.1f}{indicator['unit']} (클러스터 평균: {indicator['clusterAvg']:.1f}{indicator['unit']})\n"
@@ -66,10 +82,18 @@ class LLMService:
         
         prompt += """
 
+
 ## 요청사항
-1. 이 가맹점의 전반적인 상황을 1-2문장으로 요약해주세요.
-2. 구체적이고 실행 가능한 생존 전략 4가지를 제안해주세요.
-3. 각 전략은 이모지와 함께 "**제목**: 설명" 형식으로 작성해주세요.
+1. 이 가맹점의 전반적인 상황을 1-2문장으로 명확하게 요약하세요.
+2. 생존 전략 4가지를 제안하세요. 
+   - 각 전략은 점주가 즉시 실행할 수 있을 정도로 구체적이어야 합니다.
+   - 모호하거나 원론적인 조언(예: “마케팅을 강화하세요”, “서비스를 개선하세요”)은 금지합니다.
+   - 실행 주체(점주, 본사), 실행 방법(예: 배달앱 쿠폰 발행, 주말 1+1 이벤트 진행 등), 예상 효과를 포함하세요.
+3. 각 전략은 아래 형식을 반드시 따르세요.
+   - 이모지 + 전략 제목: 구체적인 실행 방법을 서술
+4. 가능한 한 현실적이고 비용 효율적인 전략을 중심으로 작성하세요.
+5. 답변은 아래 JSON 형식으로만 출력하세요. 다른 문장이나 해설은 포함하지 마세요.
+
 
 ## 응답 형식
 summary: (전체 요약)
@@ -81,30 +105,33 @@ strategies:
 """
         return prompt
     
-    def _call_openai(self, prompt: str) -> Dict:
+    def _call_openai(self, prompt: str, analysis_data: Dict = None) -> Dict:
         """OpenAI API 호출"""
         try:
             import openai
             openai.api_key = self.api_key
             
             response = openai.ChatCompletion.create(
-                model="gpt-4",
+                model="gpt-4o-mini",  # 더 빠른 모델 (3-5초 vs 20-30초)
                 messages=[
-                    {"role": "system", "content": "당신은 가맹점 경영 컨설턴트입니다."},
+                    {"role": "system", "content": "당신은 프랜차이즈 본사의 데이터 기반 경영 컨설턴트입니다. "
+            "가맹점의 데이터를 바탕으로 폐업 위험을 진단하고, 점주가 즉시 실행할 수 있는 생존 전략을 제시합니다. "
+            "응답은 반드시 JSON 형식으로 출력해야 합니다. 설명 문장은 포함하지 마세요."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
-                max_tokens=1000
+                max_tokens=800  # 토큰 감소로 속도 향상
             )
             
             content = response.choices[0].message.content
-            return self._parse_llm_response(content)
+            print(f"📝 GPT-4 응답:\n{content}\n" + "="*50)
+            return self._parse_llm_response(content, analysis_data)
             
         except Exception as e:
             print(f"OpenAI 호출 실패: {e}")
             raise
     
-    def _call_anthropic(self, prompt: str) -> Dict:
+    def _call_anthropic(self, prompt: str, analysis_data: Dict = None) -> Dict:
         """Anthropic API 호출"""
         try:
             import anthropic
@@ -120,14 +147,16 @@ strategies:
             )
             
             content = message.content[0].text
-            return self._parse_llm_response(content)
+            return self._parse_llm_response(content, analysis_data)
             
         except Exception as e:
             print(f"Anthropic 호출 실패: {e}")
             raise
     
-    def _parse_llm_response(self, content: str) -> Dict:
-        """LLM 응답 파싱"""
+    def _parse_llm_response(self, content: str, analysis_data: Dict = None) -> Dict:
+        """LLM 응답 파싱 (개선된 버전)"""
+        import re
+        
         lines = content.strip().split('\n')
         
         summary = ""
@@ -139,29 +168,80 @@ strategies:
             if not line:
                 continue
             
-            if line.startswith("summary:"):
+            # summary 찾기 (여러 패턴 지원)
+            if line.lower().startswith("summary:") or line.startswith("## 요약") or line.startswith("**요약"):
                 current_section = "summary"
-                summary = line.replace("summary:", "").strip()
-            elif line.startswith("strategies:"):
+                summary = re.sub(r'^(summary:|##\s*요약|\\*\\*요약\\*\\*):?', '', line, flags=re.IGNORECASE).strip()
+                continue
+            
+            # strategies 찾기
+            if line.lower().startswith("strategies:") or line.startswith("## 전략") or line.startswith("**전략"):
                 current_section = "strategies"
-            elif line.startswith("-") or line.startswith("•"):
-                if current_section == "strategies":
-                    strategies.append(line.lstrip("-•").strip())
+                continue
+            
+            # 전략 항목 찾기 (-, •, 숫자., 이모지로 시작)
+            if current_section == "strategies":
+                # 패턴: "- ", "• ", "1. ", "🎯 " 등으로 시작
+                if re.match(r'^[-•\d\.\)🎯📱💰📊✅🔼🔻⚠️➡️]\s*', line):
+                    strategy = re.sub(r'^[-•\d\.\)🎯📱💰📊✅🔼🔻⚠️➡️]\s*', '', line).strip()
+                    if strategy:
+                        strategies.append(strategy)
+            
+            # summary 내용 (summary: 다음 줄)
             elif current_section == "summary" and not summary:
                 summary = line
         
-        # 기본값 설정
-        if not summary:
-            summary = "분석 결과를 기반으로 전략을 제안합니다."
+        # JSON 형식으로 응답한 경우 처리
+        if not summary and not strategies:
+            try:
+                import json
+                # ```json ... ``` 블록 제거
+                json_content = content
+                if '```json' in content:
+                    json_content = content.split('```json')[1].split('```')[0].strip()
+                elif '```' in content:
+                    json_content = content.split('```')[1].split('```')[0].strip()
+                
+                # JSON으로 파싱 시도
+                data = json.loads(json_content)
+                summary = data.get('summary', '')
+                
+                # strategies가 객체 배열인 경우 처리
+                raw_strategies = data.get('strategies', [])
+                if isinstance(raw_strategies, list):
+                    for strat in raw_strategies:
+                        if isinstance(strat, dict):
+                            # 객체 형식: {"emoji": "🎯", "title": "...", "description": "..."}
+                            emoji = strat.get('emoji', '🎯')
+                            title = strat.get('title', '')
+                            desc = strat.get('description', '')
+                            strategies.append(f"{emoji} **{title}**: {desc}")
+                        elif isinstance(strat, str):
+                            # 문자열 형식
+                            strategies.append(strat)
+            except Exception as e:
+                print(f"   JSON 파싱 실패: {e}")
+                pass
         
-        if not strategies:
-            strategies = [
-                "🎯 **차별화 전략**: 경쟁사 대비 독특한 가치를 제공하세요.",
-                "📱 **디지털 마케팅**: 온라인 채널을 통한 고객 유입을 늘리세요.",
-                "💰 **비용 최적화**: 불필요한 지출을 줄이고 효율성을 높이세요.",
-                "📊 **데이터 분석**: 고객 데이터를 활용한 의사결정을 하세요."
-            ]
+        # 파싱 실패 시 데이터 기반 전략 사용
+        if not summary or not strategies:
+            print(f"⚠️  LLM 응답 파싱 실패 - 데이터 기반 전략으로 전환")
+            print(f"   파싱 결과: summary={bool(summary)}, strategies={len(strategies)}개")
+            if analysis_data:
+                return self._get_default_strategy(analysis_data)
+            else:
+                # 정말 최후의 수단
+                return {
+                    'summary': "분석 결과를 기반으로 전략을 제안합니다.",
+                    'strategies': [
+                        "🎯 **차별화 전략**: 경쟁사 대비 독특한 가치를 제공하세요.",
+                        "📱 **디지털 마케팅**: 온라인 채널을 통한 고객 유입을 늘리세요.",
+                        "💰 **비용 최적화**: 불필요한 지출을 줄이고 효율성을 높이세요.",
+                        "📊 **데이터 분석**: 고객 데이터를 활용한 의사결정을 하세요."
+                    ]
+                }
         
+        print(f"✅ 파싱 성공: summary 길이={len(summary)}, strategies={len(strategies)}개")
         return {
             'summary': summary,
             'strategies': strategies
@@ -169,8 +249,9 @@ strategies:
     
     def _get_default_strategy(self, data: Dict) -> Dict:
         """기본 전략 (API 키 없을 때)"""
-        franchise = data['franchise']
-        risk_level = franchise['risk_score']
+        store_data = data['store_data']
+        diagnosis_results = data.get('diagnosis_results', {})
+        risk_level = diagnosis_results.get('total_risk_score', 50)
         
         if risk_level >= 70:
             summary = "이 가맹점은 **고위험군**에 속합니다. 즉각적인 개선 조치가 필요합니다."

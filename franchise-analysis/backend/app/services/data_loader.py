@@ -2,6 +2,7 @@ import pandas as pd
 import pickle
 import os
 from pathlib import Path
+from typing import Dict, List, Optional
 
 
 class DataLoader:
@@ -12,122 +13,256 @@ class DataLoader:
         self.models_dir = Path(__file__).parent.parent.parent / "models"
         
         # 데이터 캐시
-        self._franchises = None
-        self._clusters = None
-        self._statistics = None
-        self._cluster_model = None
-        self._scaler = None
+        self._store_features = None
+        self._store_diagnosis_results = None
+        self._cluster_metadata = None
+        self._feature_dictionary = None
+        self._risk_checklist_rules = None
+        self._store_monthly_timeseries = None
+        self._sales_predict = None
     
-    def load_franchises(self) -> pd.DataFrame:
-        """가맹점 데이터 로드"""
-        if self._franchises is None:
-            csv_path = self.data_dir / "franchises.csv"
+    def load_store_features(self) -> pd.DataFrame:
+        """점포 특성 데이터 로드"""
+        if self._store_features is None:
+            csv_path = self.data_dir / "1002_store_features.csv"
             if not csv_path.exists():
-                raise FileNotFoundError(f"franchises.csv 파일을 찾을 수 없습니다: {csv_path}")
+                raise FileNotFoundError(f"1002_store_features.csv 파일을 찾을 수 없습니다: {csv_path}")
             
-            self._franchises = pd.read_csv(csv_path)
-            # 컬럼명 정리 (공백 제거)
-            self._franchises.columns = self._franchises.columns.str.strip()
-            print(f"✅ 가맹점 데이터 로드 완료: {len(self._franchises)}개")
+            self._store_features = pd.read_csv(csv_path)
+            self._store_features.columns = self._store_features.columns.str.strip()
+            print(f"✅ 점포 특성 데이터 로드 완료: {len(self._store_features)}개")
         
-        return self._franchises
+        return self._store_features
     
-    def load_clusters(self) -> pd.DataFrame:
-        """클러스터 통계 데이터 로드"""
-        if self._clusters is None:
-            csv_path = self.data_dir / "clusters.csv"
+    def load_store_diagnosis_results(self) -> pd.DataFrame:
+        """점포 진단 결과 데이터 로드"""
+        if self._store_diagnosis_results is None:
+            csv_path = self.data_dir / "store_diagnosis_results.csv"
             if not csv_path.exists():
-                raise FileNotFoundError(f"clusters.csv 파일을 찾을 수 없습니다: {csv_path}")
+                raise FileNotFoundError(f"store_diagnosis_results.csv 파일을 찾을 수 없습니다: {csv_path}")
             
-            self._clusters = pd.read_csv(csv_path)
-            self._clusters.columns = self._clusters.columns.str.strip()
-            print(f"✅ 클러스터 데이터 로드 완료: {len(self._clusters)}개")
+            self._store_diagnosis_results = pd.read_csv(csv_path)
+            self._store_diagnosis_results.columns = self._store_diagnosis_results.columns.str.strip()
+            print(f"✅ 점포 진단 결과 데이터 로드 완료: {len(self._store_diagnosis_results)}개")
         
-        return self._clusters
+        return self._store_diagnosis_results
     
-    def load_statistics(self) -> pd.DataFrame:
-        """변수별 통계 데이터 로드 (선택사항)"""
-        if self._statistics is None:
-            csv_path = self.data_dir / "statistics.csv"
-            if csv_path.exists():
-                self._statistics = pd.read_csv(csv_path)
-                self._statistics.columns = self._statistics.columns.str.strip()
-                print(f"✅ 통계 데이터 로드 완료")
-            else:
-                print("⚠️  statistics.csv 파일이 없습니다 (선택사항)")
-                self._statistics = pd.DataFrame()
-        
-        return self._statistics
-    
-    def load_cluster_model(self):
-        """학습된 클러스터링 모델 로드"""
-        if self._cluster_model is None:
-            model_path = self.models_dir / "cluster_model.pkl"
-            if not model_path.exists():
-                raise FileNotFoundError(f"cluster_model.pkl 파일을 찾을 수 없습니다: {model_path}")
+    def load_cluster_metadata(self) -> pd.DataFrame:
+        """클러스터 메타데이터 로드"""
+        if self._cluster_metadata is None:
+            csv_path = self.data_dir / "cluster_metadata.csv"
+            if not csv_path.exists():
+                raise FileNotFoundError(f"cluster_metadata.csv 파일을 찾을 수 없습니다: {csv_path}")
             
-            with open(model_path, 'rb') as f:
-                self._cluster_model = pickle.load(f)
-            print("✅ 클러스터링 모델 로드 완료")
+            self._cluster_metadata = pd.read_csv(csv_path)
+            self._cluster_metadata.columns = self._cluster_metadata.columns.str.strip()
+            print(f"✅ 클러스터 메타데이터 로드 완료: {len(self._cluster_metadata)}개")
         
-        return self._cluster_model
+        return self._cluster_metadata
     
-    def load_scaler(self):
-        """스케일러 로드 (있을 경우)"""
-        if self._scaler is None:
-            scaler_path = self.models_dir / "scaler.pkl"
-            if scaler_path.exists():
-                with open(scaler_path, 'rb') as f:
-                    self._scaler = pickle.load(f)
-                print("✅ 스케일러 로드 완료")
-            else:
-                print("⚠️  scaler.pkl 파일이 없습니다 (선택사항)")
+    def load_feature_dictionary(self) -> pd.DataFrame:
+        """특성 사전 데이터 로드"""
+        if self._feature_dictionary is None:
+            csv_path = self.data_dir / "feature_dictionary.csv"
+            if not csv_path.exists():
+                raise FileNotFoundError(f"feature_dictionary.csv 파일을 찾을 수 없습니다: {csv_path}")
+            
+            self._feature_dictionary = pd.read_csv(csv_path)
+            self._feature_dictionary.columns = self._feature_dictionary.columns.str.strip()
+            print(f"✅ 특성 사전 데이터 로드 완료: {len(self._feature_dictionary)}개")
         
-        return self._scaler
+        return self._feature_dictionary
     
-    def get_franchise_by_id(self, franchise_id: str) -> dict:
-        """ID로 가맹점 조회"""
-        df = self.load_franchises()
-        result = df[df['franchise_id'] == franchise_id]
+    def load_risk_checklist_rules(self) -> pd.DataFrame:
+        """위험 체크리스트 룰 데이터 로드"""
+        if self._risk_checklist_rules is None:
+            csv_path = self.data_dir / "risk_checklist_rules.csv"
+            if not csv_path.exists():
+                raise FileNotFoundError(f"risk_checklist_rules.csv 파일을 찾을 수 없습니다: {csv_path}")
+            
+            self._risk_checklist_rules = pd.read_csv(csv_path)
+            self._risk_checklist_rules.columns = self._risk_checklist_rules.columns.str.strip()
+            print(f"✅ 위험 체크리스트 룰 데이터 로드 완료: {len(self._risk_checklist_rules)}개")
+        
+        return self._risk_checklist_rules
+    
+    def load_store_monthly_timeseries(self) -> pd.DataFrame:
+        """점포 월별 시계열 데이터 로드"""
+        if self._store_monthly_timeseries is None:
+            csv_path = self.data_dir / "store_monthly_timeseries.csv"
+            if not csv_path.exists():
+                raise FileNotFoundError(f"store_monthly_timeseries.csv 파일을 찾을 수 없습니다: {csv_path}")
+            
+            self._store_monthly_timeseries = pd.read_csv(csv_path)
+            self._store_monthly_timeseries.columns = self._store_monthly_timeseries.columns.str.strip()
+            print(f"✅ 점포 월별 시계열 데이터 로드 완료: {len(self._store_monthly_timeseries)}개")
+        
+        return self._store_monthly_timeseries
+    
+    def load_sales_predict(self) -> pd.DataFrame:
+        """매출 예측 데이터 로드"""
+        if self._sales_predict is None:
+            csv_path = self.data_dir / "sales_predict_result.csv"
+            if not csv_path.exists():
+                raise FileNotFoundError(f"sales_predict_result.csv 파일을 찾을 수 없습니다: {csv_path}")
+            
+            self._sales_predict = pd.read_csv(csv_path)
+            self._sales_predict.columns = self._sales_predict.columns.str.strip()
+            print(f"✅ 매출 예측 데이터 로드 완료: {len(self._sales_predict)}개")
+        
+        return self._sales_predict
+    
+    def get_store_by_id(self, store_id: str) -> Optional[Dict]:
+        """ID로 점포 조회"""
+        df = self.load_store_features()
+        result = df[df['store_id'] == store_id]
         
         if result.empty:
             return None
         
         return result.iloc[0].to_dict()
     
-    def get_cluster_stats(self, cluster_id: str) -> dict:
-        """클러스터 통계 조회"""
-        df = self.load_clusters()
-        result = df[df['cluster_id'] == cluster_id]
-        
-        if result.empty:
+    def get_store_location_info(self, store_id: str) -> Optional[Dict]:
+        """점포 위치 정보 조회 (1002_store_features.csv에서)"""
+        store_data = self.get_store_by_id(store_id)
+        if not store_data:
             return None
         
-        return result.iloc[0].to_dict()
-    
-    def get_franchises_by_cluster(self, cluster_id: str) -> pd.DataFrame:
-        """특정 클러스터의 모든 가맹점 조회"""
-        df = self.load_franchises()
-        return df[df['cluster_id'] == cluster_id]
-    
-    def get_industry_stats(self, industry: str) -> dict:
-        """업종별 통계 계산"""
-        df = self.load_franchises()
-        industry_data = df[df['industry'] == industry]
-        
-        if industry_data.empty:
-            return None
-        
-        # is_closed 컬럼이 없으므로 risk_score를 기반으로 폐업률 추정
-        # risk_score가 70 이상이면 폐업 위험으로 간주
-        high_risk_count = len(industry_data[industry_data['risk_score'] >= 70])
-        estimated_closure_rate = (high_risk_count / len(industry_data)) * 100
-        
+        # 필요한 위치 정보만 추출
         return {
-            'total_stores': len(industry_data),
-            'closure_rate': estimated_closure_rate,
-            'avg_closure_risk': industry_data['risk_score'].mean()
+            'business_district': store_data.get('business_district', ''),
+            'region': store_data.get('region_3depth_name', ''),
+            'store_name': store_data.get('store_name', '')
         }
+    
+    def get_store_diagnosis_results(self, store_id: str) -> Optional[Dict]:
+        """점포 진단 결과 조회"""
+        df = self.load_store_diagnosis_results()
+        # store_id로 store_index를 찾아야 함
+        store_features = self.load_store_features()
+        store_row = store_features[store_features['store_id'] == store_id]
+        if store_row.empty:
+            return None
+        
+        store_index = store_row.index[0]  # pandas 인덱스 사용
+        result = df[df['store_index'] == store_index]
+        
+        if result.empty:
+            return None
+        
+        return result.iloc[0].to_dict()
+    
+    def get_cluster_metadata(self, cluster_id: str) -> Optional[Dict]:
+        """클러스터 메타데이터 조회"""
+        df = self.load_cluster_metadata()
+        # cluster_id를 정수로 변환해서 비교
+        cluster_id_int = int(cluster_id)
+        result = df[df['cluster_id'] == cluster_id_int]
+        
+        if result.empty:
+            return None
+        
+        return result.iloc[0].to_dict()
+    
+    def get_feature_korean_name(self, feature: str) -> str:
+        """특성의 한국어 이름 조회"""
+        df = self.load_feature_dictionary()
+        result = df[df['feature'] == feature]
+        
+        if result.empty:
+            return feature  # 한국어 이름이 없으면 원래 이름 반환
+        
+        return result.iloc[0]['feature_korean']
+    
+    def get_rules_for_cluster(self, cluster_id: str) -> List[Dict]:
+        """특정 클러스터의 룰 목록 조회"""
+        df = self.load_risk_checklist_rules()
+        # cluster_id를 정수로 변환해서 비교
+        cluster_id_int = int(cluster_id)
+        print(f"🔍 디버깅 get_rules_for_cluster: cluster_id = {cluster_id}, cluster_id_int = {cluster_id_int}")
+        print(f"🔍 디버깅 get_rules_for_cluster: df['cluster_id'].unique() = {df['cluster_id'].unique()}")
+        print(f"🔍 디버깅 get_rules_for_cluster: df['cluster_id'].dtype = {df['cluster_id'].dtype}")
+        result = df[df['cluster_id'] == cluster_id_int]
+        print(f"🔍 디버깅 get_rules_for_cluster: result 길이 = {len(result)}")
+        
+        if result.empty:
+            return []
+        
+        return result.to_dict('records')
+    
+    def get_store_monthly_timeseries(self, store_id: str) -> Optional[Dict]:
+        """점포 월별 시계열 데이터 조회"""
+        df = self.load_store_monthly_timeseries()
+        # store_id로 직접 조회 (업데이트된 CSV 구조)
+        result = df[df['store_id'] == store_id]
+        
+        if result.empty:
+            return None
+        
+        # 시계열 데이터를 월별로 정리
+        timeseries_data = {}
+        for _, row in result.iterrows():
+            date_str = row['date']
+            month = date_str[:7]  # YYYY-MM 형식
+            timeseries_data[month] = {
+                'sales': row['sales']  # sales는 등급 (1-6)
+            }
+        
+        return timeseries_data
+    
+    def get_sales_predictions(self, store_id: str) -> List[Dict]:
+        """점포의 매출 예측 데이터 조회 (모든 horizon 포함)"""
+        df = self.load_sales_predict()
+        result = df[df['store_id'] == store_id]
+        
+        if result.empty:
+            return []
+        
+        # horizon별로 정렬 (1, 2, 3개월)
+        result = result.sort_values('horizon')
+        
+        return result.to_dict('records')
+    
+    def calculate_rule_violations(self, store_id: str) -> List[Dict]:
+        """점포의 룰 위반 계산"""
+        store_data = self.get_store_by_id(store_id)
+        if not store_data:
+            return []
+        
+        cluster_id = store_data.get('static_cluster', '0')
+        rules = self.get_rules_for_cluster(cluster_id)
+        violations = []
+        
+        for rule in rules:
+            feature = rule['feature']
+            threshold = rule['threshold']
+            direction = rule['direction']
+            risk_level = rule['risk_level']
+            rule_text = rule['rule_text']
+            feature_korean = rule['feature_korean']
+            
+            # 점포의 해당 특성 값 조회
+            if feature in store_data:
+                current_value = store_data[feature]
+                
+                # 룰 위반 여부 판정
+                is_violated = False
+                if direction == '<=' and current_value <= threshold:
+                    is_violated = True
+                elif direction == '>=' and current_value >= threshold:
+                    is_violated = True
+                
+                if is_violated:
+                    violations.append({
+                        'ruleText': rule_text,
+                        'riskLevel': risk_level,
+                        'featureKorean': feature_korean,
+                        'currentValue': current_value,
+                        'threshold': threshold,
+                        'direction': direction
+                    })
+        
+        return violations
 
 
 # 싱글톤 인스턴스

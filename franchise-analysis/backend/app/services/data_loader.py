@@ -24,11 +24,16 @@ class DataLoader:
     def load_store_features(self) -> pd.DataFrame:
         """점포 특성 데이터 로드"""
         if self._store_features is None:
-            csv_path = self.data_dir / "1002_store_features.csv"
+            csv_path = self.data_dir / "final_features_per_store.csv"
             if not csv_path.exists():
                 raise FileNotFoundError(f"1002_store_features.csv 파일을 찾을 수 없습니다: {csv_path}")
             
-            self._store_features = pd.read_csv(csv_path)
+            # 🚨🚨🚨 이 부분이 유일한 해결책입니다 🚨🚨🚨
+            # index_col=False 를 추가해서,
+            # 파일의 첫 번째 열(그 '183'이 들어있는)을 인덱스로 안 쓰게 막고
+            # 0, 1, 2, 3... 순서대로 행 번호 인덱스를 강제로 만듭니다.
+            self._store_features = pd.read_csv(csv_path, index_col=False) 
+            
             self._store_features.columns = self._store_features.columns.str.strip()
             print(f"✅ 점포 특성 데이터 로드 완료: {len(self._store_features)}개")
         
@@ -37,7 +42,7 @@ class DataLoader:
     def load_store_diagnosis_results(self) -> pd.DataFrame:
         """점포 진단 결과 데이터 로드"""
         if self._store_diagnosis_results is None:
-            csv_path = self.data_dir / "store_diagnosis_results.csv"
+            csv_path = self.data_dir / "store_diagnosis_results_2.csv"
             if not csv_path.exists():
                 raise FileNotFoundError(f"store_diagnosis_results.csv 파일을 찾을 수 없습니다: {csv_path}")
             
@@ -76,7 +81,7 @@ class DataLoader:
     def load_risk_checklist_rules(self) -> pd.DataFrame:
         """위험 체크리스트 룰 데이터 로드"""
         if self._risk_checklist_rules is None:
-            csv_path = self.data_dir / "risk_checklist_rules.csv"
+            csv_path = self.data_dir / "risk_checklist_rules_2.csv"
             if not csv_path.exists():
                 raise FileNotFoundError(f"risk_checklist_rules.csv 파일을 찾을 수 없습니다: {csv_path}")
             
@@ -134,23 +139,30 @@ class DataLoader:
             'region': store_data.get('region_3depth_name', ''),
             'store_name': store_data.get('store_name', '')
         }
-    
+
     def get_store_diagnosis_results(self, store_id: str) -> Optional[Dict]:
-        """점포 진단 결과 조회"""
-        df = self.load_store_diagnosis_results()
-        # store_id로 store_index를 찾아야 함
-        store_features = self.load_store_features()
-        store_row = store_features[store_features['store_id'] == store_id]
-        if store_row.empty:
-            return None
+        """점포 진단 결과 조회 (store_id로 직접 조회)"""
         
-        store_index = store_row.index[0]  # pandas 인덱스 사용
-        result = df[df['store_index'] == store_index]
+        # 1. 'store_diagnosis_results_2.csv' 파일을 로드합니다.
+        df = self.load_store_diagnosis_results()
+        
+        # 2. 이 파일에 'store_id' 컬럼이 있는지 확인합니다.
+        if 'store_id' not in df.columns:
+            print(f"❌ 오류: 'store_diagnosis_results_2.csv'에 'store_id' 컬럼이 없습니다!")
+            print("➡️ 데이터를 다시 확인해주세요. 'store_id' 컬럼이 필요합니다.")
+            return None # None을 반환하면 analyzer.py가 기본값을 사용합니다.
+
+        # 3. 'store_id'로 'diagnosis_results' 파일을 직접 조회합니다.
+        result = df[df['store_id'] == store_id]
         
         if result.empty:
-            return None
+            # 두 파일의 개수를 맞췄다면 이 경고는 뜨지 않아야 합니다.
+            print(f"⚠️ 경고: diagnosis_results에서 store_id {store_id}를 찾을 수 없습니다. 기본값을 반환합니다.")
+            return None 
         
+        # 4. 찾은 행의 데이터를 반환합니다.
         return result.iloc[0].to_dict()
+
     
     def get_cluster_metadata(self, cluster_id: str) -> Optional[Dict]:
         """클러스터 메타데이터 조회"""

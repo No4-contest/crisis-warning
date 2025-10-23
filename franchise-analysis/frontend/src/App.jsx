@@ -74,7 +74,7 @@ function App() {
                   {reportData.storeInfo.name} 리포트
                 </h2>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-blue-50 rounded-lg p-4 hover:bg-blue-100 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
                   <div className="text-sm text-blue-600 font-semibold">가맹점명</div>
                   <div className="text-lg font-bold text-blue-800">{reportData.storeInfo.name}</div>
@@ -86,22 +86,6 @@ function App() {
                 <div className="bg-purple-50 rounded-lg p-4 hover:bg-purple-100 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5">
                   <div className="text-sm text-purple-600 font-semibold">상권</div>
                   <div className="text-lg font-bold text-purple-800">{reportData.storeInfo.tradingArea}</div>
-                </div>
-                <div className={`rounded-lg p-4 hover:opacity-90 transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 ${
-                  reportData.storeInfo.riskLevel === '치명적' ? 'bg-red-50' :
-                  reportData.storeInfo.riskLevel === '높음' ? 'bg-orange-50' :
-                  reportData.storeInfo.riskLevel === '중간' ? 'bg-yellow-50' : 'bg-blue-50'
-                }`}>
-                  <div className={`text-sm font-semibold ${
-                    reportData.storeInfo.riskLevel === '치명적' ? 'text-red-600' :
-                    reportData.storeInfo.riskLevel === '높음' ? 'text-orange-600' :
-                    reportData.storeInfo.riskLevel === '중간' ? 'text-yellow-600' : 'text-blue-600'
-                  }`}>위험도</div>
-                  <div className={`text-lg font-bold ${
-                    reportData.storeInfo.riskLevel === '치명적' ? 'text-red-800' :
-                    reportData.storeInfo.riskLevel === '높음' ? 'text-orange-800' :
-                    reportData.storeInfo.riskLevel === '중간' ? 'text-yellow-800' : 'text-blue-800'
-                  }`}>{reportData.storeInfo.riskLevel}</div>
                 </div>
               </div>
             </div>

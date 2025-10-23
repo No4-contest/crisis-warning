@@ -81,8 +81,6 @@ class LLMService:
 
 ## 위험도 진단
 - 위험도 점수: {diagnosis_results.get('total_risk_score', 50):.1f}점 (100점 만점)
-- 위험도 레벨: {diagnosis_results.get('overall_risk_level', '중간')}
-- 생존 가능성: {model_results.get('survival_probability', 50):.1f}%
 - 룰 위반 건수: {diagnosis_results.get('n_violations', 0)}건 (치명적: {diagnosis_results.get('n_critical_violations', 0)}건)
 
 ## 매출 트렌드
@@ -115,6 +113,8 @@ class LLMService:
         prompt += """
 
 ## 요청사항
+0. 존댓말로 해주세요. 가맹점주에게 제안을 하는 상황입니다.
+
 1. 이 가맹점의 전반적인 상황을 **1-2문장**으로 명확하게 요약하세요.
 - 위험도 수준, 주요 문제점, 예측 트렌드를 포함하세요.
 
@@ -123,13 +123,8 @@ class LLMService:
 - 모호한 조언(예: "마케팅 강화")은 금지합니다.
 - 구체적 실행 방법과 예상 효과를 명시하세요.
 
-3. 특히 다음 사항을 고려하세요:
-- 30대 남성 고객 비율이 낮은 점 (클러스터 특성상 중요 지표)
-- 매출 등급이 2-3등급 수준으로 중하위권
-- 테이크아웃/커피전문점 특성 (유동 고객 비율 높음)
-
 4. 각 전략은 아래 형식을 따르세요:
-- 이모지 + **전략 제목**: 구체적 실행 방법 서술
+- **전략 제목**: 구체적 실행 방법 서술
 
 5. 답변은 아래 형식으로만 출력하세요.
 

@@ -48,7 +48,7 @@ const ModelResults = ({ results, salesPredictions = [] }) => {
         모델 예측 결과
       </h3>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* 매출 트렌드 예측 - salesPredictions 기반 */}
         {salesPredictions && salesPredictions.length > 0 && (
           <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-4 border-l-4 border-blue-500 hover:shadow-lg transition-all duration-300">
@@ -87,18 +87,6 @@ const ModelResults = ({ results, salesPredictions = [] }) => {
             })()}
           </div>
         )}
-
-        {/* 생존 가능성 */}
-        <div className="bg-gradient-to-r from-green-50 to-green-100 rounded-lg p-4 border-l-4 border-green-500 hover:shadow-lg transition-all duration-300 hover:-translate-y-1">
-          <div className="flex items-center gap-2 mb-2">
-            <Target className="text-green-600" size={20} />
-            <h4 className="font-semibold text-gray-700">생존 가능성</h4>
-          </div>
-          <p className={`text-2xl font-bold ${getSurvivalColor(results.survivalProbability)}`}>
-            {Number(results.survivalProbability).toFixed(2)}%
-          </p>
-          <p className="text-sm text-gray-600">6개월 후</p>
-        </div>
 
         {/* 위험도 점수 */}
         <div className={`bg-gradient-to-r ${getRiskStatus(results.riskScore).cardBg} rounded-lg p-4 border-l-4 ${getRiskStatus(results.riskScore).border} hover:shadow-lg transition-all duration-300 hover:-translate-y-1`}>

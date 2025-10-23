@@ -40,7 +40,7 @@ class LLMService:
             return self._get_default_strategy(analysis_data)
     
     def _create_prompt(self, data: Dict) -> str:
-        """프롬프트 생성"""
+        """프롬프트 생성 (실제 데이터 구조 반영)"""
         store_data = data['store_data']
         location_info = data.get('location_info', {})
         cluster_metadata = data.get('cluster_metadata', {})
@@ -48,61 +48,100 @@ class LLMService:
         model_results = data.get('model_results', {})
         cluster_indicators = data.get('cluster_indicators', [])
         rule_violations = data.get('rule_violations', [])
+        trend_data = data.get('trend_data', [])
+        
+        # 클러스터 요약 정보 추출
+        cluster_summary = cluster_metadata.get('summary_text', '') if cluster_metadata else ''
+        
+        # 최근 매출 등급 추세 분석 (실제 데이터)
+        actual_trends = [t for t in trend_data if t['type'] == 'actual']
+        forecast_trends = [t for t in trend_data if t['type'] == 'forecast']
+        
+        trend_description = ""
+        if actual_trends:
+            recent_grades = [t['salesGrade'] for t in actual_trends[-3:]]  # 최근 3개월
+            avg_grade = sum(recent_grades) / len(recent_grades)
+            trend_description = f"최근 3개월 평균 매출 등급: {avg_grade:.1f}등급 (1등급이 가장 높음)"
+        
+        # 예측 트렌드
+        forecast_description = ""
+        if forecast_trends:
+            forecast_grades = [t['salesGrade'] for t in forecast_trends]
+            risk_worsen = forecast_trends[-1].get('riskWorsen', 0) * 100
+            forecast_description = f"향후 3개월 예측 등급: {forecast_grades[0]}등급, 악화 위험률: {risk_worsen:.1f}%"
         
         prompt = f"""
 다음 가맹점의 폐업 위험을 분석하고 생존 전략을 제안해주세요.
 
 ## 가맹점 정보
 - 점포명: {store_data.get('store_name', 'N/A')}
-- 상권: {location_info.get('business_district', 'N/A')}
-- 업종: {store_data.get('industry', 'N/A')}
-- 클러스터: {cluster_metadata.get('cluster_name', f'클러스터 {store_data.get("static_cluster", "0")}')}
-- 위험도 점수: {diagnosis_results.get('total_risk_score', 50):.1f}점
-- 위험도 레벨: {diagnosis_results.get('total_risk_level', '중간')}
+- 상권: {location_info.get('business_district', 'N/A')} ({location_info.get('region', 'N/A')})
+- 클러스터: {cluster_metadata.get('cluster_name', 'N/A') if cluster_metadata else 'N/A'}
+- 클러스터 특성: {cluster_summary}
 
-## 모델 예측 결과
-- 매출 예측: {model_results.get('sales_prediction', 0):.0f}만원
-- 생존 가능성: {model_results.get('survival_probability', 0):.1f}%
-- 이벤트 예측: {model_results.get('event_prediction', 'N/A')}
+## 위험도 진단
+- 위험도 점수: {diagnosis_results.get('total_risk_score', 50):.1f}점 (100점 만점)
+- 위험도 레벨: {diagnosis_results.get('overall_risk_level', '중간')}
+- 생존 가능성: {model_results.get('survival_probability', 50):.1f}%
+- 룰 위반 건수: {diagnosis_results.get('n_violations', 0)}건 (치명적: {diagnosis_results.get('n_critical_violations', 0)}건)
 
-## 위반된 룰
-"""
+## 매출 트렌드
+- {trend_description}
+- {forecast_description}
+
+## 위반된 주요 룰 (상위 3개)
+    """
+        
         if rule_violations:
-            for violation in rule_violations[:3]:  # 상위 3개 위반만 표시
-                prompt += f"- {violation['ruleText']} (위험도: {violation['riskLevel']})\n"
+            for i, violation in enumerate(rule_violations[:3], 1):
+                current = violation['currentValue']
+                threshold = violation['threshold']
+                feature = violation['featureKorean']
+                prompt += f"{i}. [{violation['riskLevel']}] {feature}: 현재 {current:.1f}% (기준: {threshold:.1f}%)\n"
         else:
             prompt += "- 위반된 룰이 없습니다.\n"
         
-        prompt += "\n## 주요 지표 분석\n"
+        prompt += "\n## 클러스터 대비 주요 지표\n"
         if cluster_indicators:
-            for indicator in cluster_indicators[:5]:  # 상위 5개 지표만 사용
-                prompt += f"- {indicator['name']}: {indicator['value']:.1f}{indicator['unit']} (클러스터 평균: {indicator['clusterAvg']:.1f}{indicator['unit']})\n"
+            for indicator in cluster_indicators[:5]:
+                value = indicator['value']
+                avg = indicator['clusterAvg']
+                diff = value - avg
+                diff_sign = "▲" if diff > 0 else "▼"
+                prompt += f"- {indicator['name']}: {value:.1f}{indicator['unit']} (클러스터 평균 대비 {diff_sign}{abs(diff):.1f}{indicator['unit']})\n"
         else:
             prompt += "- 지표 데이터가 없습니다.\n"
         
         prompt += """
 
-
 ## 요청사항
-1. 이 가맹점의 전반적인 상황을 1-2문장으로 명확하게 요약하세요.
-2. 생존 전략 4가지를 제안하세요. 
-   - 각 전략은 점주가 즉시 실행할 수 있을 정도로 구체적이어야 합니다.
-   - 모호하거나 원론적인 조언(예: “마케팅을 강화하세요”, “서비스를 개선하세요”)은 금지합니다.
-   - 실행 주체(점주, 본사), 실행 방법(예: 배달앱 쿠폰 발행, 주말 1+1 이벤트 진행 등), 예상 효과를 포함하세요.
-3. 각 전략은 아래 형식을 반드시 따르세요.
-   - 이모지 + 전략 제목: 구체적인 실행 방법을 서술
-4. 가능한 한 현실적이고 비용 효율적인 전략을 중심으로 작성하세요.
-5. 답변은 아래 JSON 형식으로만 출력하세요. 다른 문장이나 해설은 포함하지 마세요.
+1. 이 가맹점의 전반적인 상황을 **1-2문장**으로 명확하게 요약하세요.
+- 위험도 수준, 주요 문제점, 예측 트렌드를 포함하세요.
 
+2. 생존 전략 4가지를 제안하세요.
+- 각 전략은 **점주가 즉시 실행 가능**해야 합니다.
+- 모호한 조언(예: "마케팅 강화")은 금지합니다.
+- 구체적 실행 방법과 예상 효과를 명시하세요.
+
+3. 특히 다음 사항을 고려하세요:
+- 30대 남성 고객 비율이 낮은 점 (클러스터 특성상 중요 지표)
+- 매출 등급이 2-3등급 수준으로 중하위권
+- 테이크아웃/커피전문점 특성 (유동 고객 비율 높음)
+
+4. 각 전략은 아래 형식을 따르세요:
+- 이모지 + **전략 제목**: 구체적 실행 방법 서술
+
+5. 답변은 아래 형식으로만 출력하세요.
 
 ## 응답 형식
-summary: (전체 요약)
+summary: (1-2문장 요약)
 strategies:
-- 🎯 **전략1 제목**: 상세 설명
+- 🎯 **전략1 제목**: 상세 설명 (실행 주체, 방법, 예상 효과 포함)
 - 📱 **전략2 제목**: 상세 설명
 - 💰 **전략3 제목**: 상세 설명
 - 📊 **전략4 제목**: 상세 설명
 """
+        
         return prompt
     
     def _call_openai(self, prompt: str, analysis_data: Dict = None) -> Dict:

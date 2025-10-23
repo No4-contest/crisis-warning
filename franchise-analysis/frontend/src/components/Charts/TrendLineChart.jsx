@@ -71,15 +71,15 @@ const TrendLineChart = ({ data }) => {
       </div>
 
       {/* 차트 */}
-      <div className="w-full overflow-x-auto">
-        <ComposedChart width={800} height={300} data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+      <div className="w-full overflow-x-auto flex justify-center">
+        <ComposedChart width={900} height={350} data={chartData} margin={{ top: 20, right: 40, left: 40, bottom: 40 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
           <XAxis 
             dataKey="month" 
             tick={{ fontSize: 12 }}
             angle={-45}
             textAnchor="end"
-            height={80}
+            height={70}
           />
           <YAxis 
             yAxisId="left"
